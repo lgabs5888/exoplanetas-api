@@ -1,0 +1,17 @@
+# Datos generados en ejecución (base de datos, archivos subidos, modelos reentrenados)
+almacenamiento/*
+!almacenamiento/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.pytest_cache/
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

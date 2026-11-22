@@ -1,0 +1,12 @@
+fastapi>=0.115
+uvicorn[standard]
+python-multipart
+numpy
+pandas
+scipy
+scikit-learn
+xgboost>=2.0
+pyyaml
+# pruebas
+pytest
+httpx
