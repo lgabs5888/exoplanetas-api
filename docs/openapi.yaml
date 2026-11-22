@@ -1,0 +1,717 @@
+openapi: 3.1.0
+info:
+  title: Exoplanetas IA - Servicio de predicción
+  description: '
+
+    API REST que predice si una estrella tiene un **exoplaneta** a partir de su curva
+    de luz
+
+    (3.197 mediciones de brillo del telescopio Kepler de la NASA).
+
+
+    * **Predicciones:** enviar datos al modelo y obtener la clasificación.
+
+    * **Historial:** consultar las predicciones previas, con los datos enviados y
+    el resultado.
+
+    * **Modelo:** métricas de rendimiento y versiones.
+
+    * **Entrenamiento:** enviar un archivo de entrenamiento y solicitar el reentrenamiento.
+
+    '
+  version: 1.0.0
+paths:
+  /salud:
+    get:
+      tags:
+      - Sistema
+      summary: Estado del servicio
+      operationId: salud_salud_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /predicciones:
+    post:
+      tags:
+      - Predicciones
+      summary: Clasificar una curva de luz (JSON)
+      description: Envía las 3.197 mediciones de brillo de una estrella y devuelve
+        si tiene un exoplaneta.
+      operationId: predecir_predicciones_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CurvaDeLuz'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoPrediccion'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Predicciones
+      summary: Historial de predicciones
+      description: 'Lista las predicciones previas, de la más reciente a la más antigua.
+
+        Para ver los datos enviados de una predicción, usa `GET /predicciones/{id}`.'
+      operationId: historial_predicciones_get
+      parameters:
+      - name: limite
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 20
+          title: Limite
+      - name: desplazamiento
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Desplazamiento
+      - name: solo_con_planeta
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Solo Con Planeta
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaHistorial'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /predicciones/archivo:
+    post:
+      tags:
+      - Predicciones
+      summary: Clasificar varias curvas desde un CSV
+      description: 'Clasifica cada fila del CSV. Si el archivo trae la columna LABEL,
+        se guarda como etiqueta real
+
+        para poder comparar después las predicciones con la realidad.'
+      operationId: predecir_archivo_predicciones_archivo_post
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_predecir_archivo_predicciones_archivo_post'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoLote'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /predicciones/{prediccion_id}:
+    get:
+      tags:
+      - Predicciones
+      summary: Detalle de una predicción, con los datos enviados
+      operationId: detalle_prediccion_predicciones__prediccion_id__get
+      parameters:
+      - name: prediccion_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Prediccion Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrediccionDetalle'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /modelo/metricas:
+    get:
+      tags:
+      - Modelo
+      summary: Métricas de rendimiento del modelo activo
+      description: 'Devuelve las métricas del modelo activo: validación cruzada y,
+        si existen, las del conjunto de prueba.
+
+        También incluye el desempeño observado en las predicciones que llegaron con
+        etiqueta real.'
+      operationId: metricas_modelo_metricas_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /modelo/versiones:
+    get:
+      tags:
+      - Modelo
+      summary: Listar versiones del modelo
+      operationId: versiones_modelo_versiones_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/VersionModelo'
+                type: array
+                title: Response Versiones Modelo Versiones Get
+  /modelo/versiones/{modelo_id}:
+    get:
+      tags:
+      - Modelo
+      summary: Estado de una versión (útil para seguir un reentrenamiento)
+      operationId: version_modelo_versiones__modelo_id__get
+      parameters:
+      - name: modelo_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Modelo Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionModelo'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /modelo/versiones/{modelo_id}/activar:
+    put:
+      tags:
+      - Modelo
+      summary: Activar una versión anterior (rollback)
+      operationId: activar_modelo_versiones__modelo_id__activar_put
+      parameters:
+      - name: modelo_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Modelo Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionModelo'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /entrenamiento/archivos:
+    get:
+      tags:
+      - Entrenamiento
+      summary: Listar archivos de entrenamiento
+      operationId: listar_archivos_entrenamiento_archivos_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivoEntrenamiento'
+                type: array
+                title: Response Listar Archivos Entrenamiento Archivos Get
+    post:
+      tags:
+      - Entrenamiento
+      summary: Enviar un archivo de entrenamiento
+      description: Guarda el archivo y lo valida. Después se puede usar en `POST /modelo/reentrenar`.
+      operationId: subir_archivo_entrenamiento_archivos_post
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_subir_archivo_entrenamiento_archivos_post'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArchivoEntrenamiento'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /modelo/reentrenar:
+    post:
+      tags:
+      - Entrenamiento
+      summary: Solicitar el reentrenamiento del modelo
+      description: 'Entrena una nueva versión con el archivo indicado, en segundo
+        plano.
+
+        Usa validación cruzada estratificada de 5 pliegues para calcular las métricas
+        y el umbral.
+
+        Consulta el avance con `GET /modelo/versiones/{modelo_id}`.'
+      operationId: reentrenar_modelo_reentrenar_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudReentrenamiento'
+        required: true
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaReentrenamiento'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    ArchivoEntrenamiento:
+      properties:
+        id:
+          type: integer
+          title: Id
+        nombre_original:
+          type: string
+          title: Nombre Original
+        filas:
+          type: integer
+          title: Filas
+        positivos:
+          type: integer
+          title: Positivos
+        tamano_bytes:
+          type: integer
+          title: Tamano Bytes
+        subido_en:
+          type: string
+          title: Subido En
+      type: object
+      required:
+      - id
+      - nombre_original
+      - filas
+      - positivos
+      - tamano_bytes
+      - subido_en
+      title: ArchivoEntrenamiento
+    Body_predecir_archivo_predicciones_archivo_post:
+      properties:
+        archivo:
+          type: string
+          contentMediaType: application/octet-stream
+          title: Archivo
+          description: CSV con columnas FLUX.1 a FLUX.3197 (LABEL opcional).
+      type: object
+      required:
+      - archivo
+      title: Body_predecir_archivo_predicciones_archivo_post
+    Body_subir_archivo_entrenamiento_archivos_post:
+      properties:
+        archivo:
+          type: string
+          contentMediaType: application/octet-stream
+          title: Archivo
+          description: CSV con LABEL y FLUX.1 a FLUX.3197 (formato de exoTrain.csv).
+      type: object
+      required:
+      - archivo
+      title: Body_subir_archivo_entrenamiento_archivos_post
+    CurvaDeLuz:
+      properties:
+        flux:
+          items:
+            type: number
+          type: array
+          maxItems: 3197
+          minItems: 3197
+          title: Flux
+          description: Las 3197 mediciones de brillo (FLUX.1 a FLUX.3197), en orden.
+        identificador:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Identificador
+          description: Nombre opcional de la estrella.
+      type: object
+      required:
+      - flux
+      title: CurvaDeLuz
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    PaginaHistorial:
+      properties:
+        total:
+          type: integer
+          title: Total
+        limite:
+          type: integer
+          title: Limite
+        desplazamiento:
+          type: integer
+          title: Desplazamiento
+        items:
+          items:
+            $ref: '#/components/schemas/PrediccionHistorial'
+          type: array
+          title: Items
+      type: object
+      required:
+      - total
+      - limite
+      - desplazamiento
+      - items
+      title: PaginaHistorial
+    PrediccionDetalle:
+      properties:
+        id:
+          type: integer
+          title: Id
+        identificador:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Identificador
+        origen:
+          type: string
+          title: Origen
+        probabilidad:
+          type: number
+          title: Probabilidad
+        prediccion:
+          type: integer
+          title: Prediccion
+        resultado:
+          type: string
+          title: Resultado
+        etiqueta_real:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Etiqueta Real
+        modelo_version:
+          type: string
+          title: Modelo Version
+        creado_en:
+          type: string
+          title: Creado En
+        datos:
+          items:
+            type: number
+          type: array
+          title: Datos
+          description: 'Datos enviados: las 3.197 mediciones de brillo.'
+      type: object
+      required:
+      - id
+      - identificador
+      - origen
+      - probabilidad
+      - prediccion
+      - resultado
+      - etiqueta_real
+      - modelo_version
+      - creado_en
+      - datos
+      title: PrediccionDetalle
+    PrediccionHistorial:
+      properties:
+        id:
+          type: integer
+          title: Id
+        identificador:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Identificador
+        origen:
+          type: string
+          title: Origen
+        probabilidad:
+          type: number
+          title: Probabilidad
+        prediccion:
+          type: integer
+          title: Prediccion
+        resultado:
+          type: string
+          title: Resultado
+        etiqueta_real:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Etiqueta Real
+        modelo_version:
+          type: string
+          title: Modelo Version
+        creado_en:
+          type: string
+          title: Creado En
+      type: object
+      required:
+      - id
+      - identificador
+      - origen
+      - probabilidad
+      - prediccion
+      - resultado
+      - etiqueta_real
+      - modelo_version
+      - creado_en
+      title: PrediccionHistorial
+    RespuestaReentrenamiento:
+      properties:
+        modelo_id:
+          type: integer
+          title: Modelo Id
+        estado:
+          type: string
+          title: Estado
+        mensaje:
+          type: string
+          title: Mensaje
+      type: object
+      required:
+      - modelo_id
+      - estado
+      - mensaje
+      title: RespuestaReentrenamiento
+    ResultadoLote:
+      properties:
+        total:
+          type: integer
+          title: Total
+        con_planeta:
+          type: integer
+          title: Con Planeta
+        resultados:
+          items:
+            $ref: '#/components/schemas/ResultadoPrediccion'
+          type: array
+          title: Resultados
+      type: object
+      required:
+      - total
+      - con_planeta
+      - resultados
+      title: ResultadoLote
+    ResultadoPrediccion:
+      properties:
+        id:
+          type: integer
+          title: Id
+        identificador:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Identificador
+        probabilidad:
+          type: number
+          title: Probabilidad
+          description: Probabilidad de que la estrella tenga un exoplaneta (0 a 1).
+        prediccion:
+          type: integer
+          title: Prediccion
+          description: 1 = con planeta, 0 = sin planeta.
+        resultado:
+          type: string
+          title: Resultado
+        umbral:
+          type: number
+          title: Umbral
+        modelo_version:
+          type: string
+          title: Modelo Version
+        etiqueta_real:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Etiqueta Real
+      type: object
+      required:
+      - id
+      - identificador
+      - probabilidad
+      - prediccion
+      - resultado
+      - umbral
+      - modelo_version
+      title: ResultadoPrediccion
+    SolicitudReentrenamiento:
+      properties:
+        archivo_id:
+          type: integer
+          title: Archivo Id
+          description: ID del archivo de entrenamiento enviado antes.
+        activar:
+          type: boolean
+          title: Activar
+          description: Si es verdadero, la nueva versión pasa a ser la activa al terminar.
+          default: true
+      type: object
+      required:
+      - archivo_id
+      title: SolicitudReentrenamiento
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    VersionModelo:
+      properties:
+        id:
+          type: integer
+          title: Id
+        version:
+          type: string
+          title: Version
+        algoritmo:
+          type: string
+          title: Algoritmo
+        estado:
+          type: string
+          title: Estado
+        activo:
+          type: boolean
+          title: Activo
+        umbral:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Umbral
+        hiperparametros:
+          additionalProperties: true
+          type: object
+          title: Hiperparametros
+        metricas:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Metricas
+        archivo_entrenamiento_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Archivo Entrenamiento Id
+        mensaje_error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mensaje Error
+        creado_en:
+          type: string
+          title: Creado En
+        finalizado_en:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Finalizado En
+      type: object
+      required:
+      - id
+      - version
+      - algoritmo
+      - estado
+      - activo
+      - umbral
+      - hiperparametros
+      - metricas
+      - archivo_entrenamiento_id
+      - mensaje_error
+      - creado_en
+      - finalizado_en
+      title: VersionModelo
+tags:
+- name: Predicciones
+  description: Clasificación de curvas de luz e historial.
+- name: Modelo
+  description: Métricas de rendimiento y versiones del modelo.
+- name: Entrenamiento
+  description: Archivos de entrenamiento y reentrenamiento.
+- name: Sistema
+  description: Estado del servicio.
